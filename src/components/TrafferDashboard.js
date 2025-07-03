@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Youtube, Instagram, Twitter, MessageCircle, Music, Plus, BarChart3, Calendar } from 'lucide-react';
+import { Youtube, Instagram, Twitter, MessageCircle, Music, Plus, BarChart3 } from 'lucide-react';
 import { trafferAPI } from '../services/api';
 
 const TrafferDashboard = ({ onLogout }) => {
