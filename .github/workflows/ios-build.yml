@@ -39,6 +39,11 @@ jobs:
     - name: ⚡ Setup Capacitor
       run: |
         npm install @capacitor/core @capacitor/cli @capacitor/ios
+        
+        # Удаляем существующую iOS папку если есть
+        rm -rf ios/
+        
+        # Добавляем iOS платформу
         npx cap add ios
         npx cap copy ios
         
