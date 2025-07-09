@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, DollarSign, Users, BarChart3, Calendar, Trash2, Crown, ArrowUp, ArrowDown, Wallet, TrendingUp, Eye } from 'lucide-react';
 import { bingxAPI, vipAPI, tradingAPI } from '../services/api';
 import TimeFilter from './TimeFilter';
@@ -44,15 +44,8 @@ const ManagerDashboard = ({ onLogout }) => {
     loadTradingData();
   }, []);
 
-  // Load BingX history when tab changes or period changes
-  useEffect(() => {
-    if (activeTab === 'bingx') {
-      loadBingxHistory();
-    }
-  }, [activeTab, selectedPeriod]);
-
   // Load BingX history with period filter
-  const loadBingxHistory = async () => {
+  const loadBingxHistory = useCallback(async () => {
     try {
       const response = await bingxAPI.getData(selectedPeriod);
       setBingxHistory(response.data);
@@ -60,7 +53,14 @@ const ManagerDashboard = ({ onLogout }) => {
       console.error('Error loading BingX history:', error);
       setError('Ошибка загрузки истории BingX');
     }
-  };
+  }, [selectedPeriod]);
+
+  // Load BingX history when tab changes or period changes
+  useEffect(() => {
+    if (activeTab === 'bingx') {
+      loadBingxHistory();
+    }
+  }, [activeTab, loadBingxHistory]);
 
   // Load VIP data
   const loadVipData = async () => {
@@ -114,7 +114,7 @@ const ManagerDashboard = ({ onLogout }) => {
         adProfit: ''
       });
       // Reload history after saving
-      loadBingxHistory();
+      await loadBingxHistory();
       alert('Данные BingX сохранены успешно!');
     } catch (error) {
       console.error('Error saving BingX data:', error);

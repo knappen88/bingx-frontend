@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart3, PieChart, Users, Target, Filter } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie } from 'recharts';
 import { adminAPI } from '../services/api';
@@ -16,12 +16,7 @@ const AdminDashboard = ({ onLogout }) => {
     users: []
   });
 
-  // Загрузка данных при монтировании компонента и при изменении периода
-  useEffect(() => {
-    loadAllData();
-  }, [selectedPeriod]);
-
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     setLoading(true);
     setError('');
     
@@ -41,7 +36,12 @@ const AdminDashboard = ({ onLogout }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod]);
+
+  // Загрузка данных при монтировании компонента и при изменении периода
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
   // Расчет общих показателей на основе реальных данных
   const calculateTotals = () => {
