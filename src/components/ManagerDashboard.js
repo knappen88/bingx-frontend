@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, DollarSign, Users, BarChart3, Calendar, Trash2, Crown, ArrowUp, ArrowDown, Wallet } from 'lucide-react';
+import { Plus, DollarSign, Users, BarChart3, Calendar, Trash2, Crown, ArrowUp, ArrowDown, Wallet, TrendingUp, Eye } from 'lucide-react';
 import { bingxAPI, vipAPI, tradingAPI } from '../services/api';
+import TimeFilter from './TimeFilter';
 
 const ManagerDashboard = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('bingx');
@@ -14,6 +15,11 @@ const ManagerDashboard = ({ onLogout }) => {
     adCosts: '',
     adProfit: ''
   });
+  
+  // BingX History and Filtering
+  const [bingxHistory, setBingxHistory] = useState([]);
+  const [selectedPeriod, setSelectedPeriod] = useState('today');
+  const [showBingxHistory, setShowBingxHistory] = useState(false);
 
   // VIP Data
   const [vipMembers, setVipMembers] = useState([]);
@@ -37,6 +43,24 @@ const ManagerDashboard = ({ onLogout }) => {
     loadVipData();
     loadTradingData();
   }, []);
+
+  // Load BingX history when tab changes or period changes
+  useEffect(() => {
+    if (activeTab === 'bingx') {
+      loadBingxHistory();
+    }
+  }, [activeTab, selectedPeriod]);
+
+  // Load BingX history with period filter
+  const loadBingxHistory = async () => {
+    try {
+      const response = await bingxAPI.getData(selectedPeriod);
+      setBingxHistory(response.data);
+    } catch (error) {
+      console.error('Error loading BingX history:', error);
+      setError('Ошибка загрузки истории BingX');
+    }
+  };
 
   // Load VIP data
   const loadVipData = async () => {
@@ -89,6 +113,8 @@ const ManagerDashboard = ({ onLogout }) => {
         adCosts: '',
         adProfit: ''
       });
+      // Reload history after saving
+      loadBingxHistory();
       alert('Данные BingX сохранены успешно!');
     } catch (error) {
       console.error('Error saving BingX data:', error);
@@ -96,6 +122,23 @@ const ManagerDashboard = ({ onLogout }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate BingX statistics for selected period
+  const calculateBingxStats = () => {
+    return bingxHistory.reduce((acc, item) => ({
+      totalReferrals: acc.totalReferrals + (item.newReferrals || 0),
+      totalTradingVolume: acc.totalTradingVolume + (item.tradingVolume || 0),
+      totalTradingProfit: acc.totalTradingProfit + (item.tradingProfit || 0),
+      totalAdCosts: acc.totalAdCosts + (item.adCosts || 0),
+      totalAdProfit: acc.totalAdProfit + (item.adProfit || 0)
+    }), {
+      totalReferrals: 0,
+      totalTradingVolume: 0,
+      totalTradingProfit: 0,
+      totalAdCosts: 0,
+      totalAdProfit: 0
+    });
   };
 
   // Add VIP member
@@ -237,6 +280,8 @@ const ManagerDashboard = ({ onLogout }) => {
     { id: 'trading', name: 'Торговля', icon: DollarSign }
   ];
 
+  const bingxStats = calculateBingxStats();
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-8 max-w-md">
@@ -299,6 +344,7 @@ const ManagerDashboard = ({ onLogout }) => {
         {/* BingX Tab */}
         {activeTab === 'bingx' && (
           <div className="space-y-6">
+            {/* Форма добавления данных */}
             <div className="bg-gray-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <Calendar className="w-5 h-5 mr-2" />
@@ -385,36 +431,123 @@ const ManagerDashboard = ({ onLogout }) => {
               </div>
             </div>
 
-            {/* Краткая статистика */}
+            {/* Фильтрация по времени */}
             <div className="bg-gray-800 rounded-xl p-6">
-              <h4 className="font-semibold mb-3">Сегодняшняя сводка</h4>
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <TrendingUp className="w-5 h-5 mr-2" />
+                Статистика по периодам
+              </h3>
+              
+              <TimeFilter 
+                selectedPeriod={selectedPeriod}
+                onPeriodChange={setSelectedPeriod}
+              />
+            </div>
+
+            {/* Статистика за выбранный период */}
+            <div className="bg-gray-800 rounded-xl p-6">
+              <h4 className="font-semibold mb-3 flex items-center justify-between">
+                <span>Сводка за период</span>
+                <button
+                  onClick={() => setShowBingxHistory(!showBingxHistory)}
+                  className="text-blue-400 hover:text-blue-300 text-sm flex items-center"
+                >
+                  <Eye className="w-4 h-4 mr-1" />
+                  {showBingxHistory ? 'Скрыть' : 'Детали'}
+                </button>
+              </h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
+                  <span className="text-gray-400">Записей:</span>
+                  <span>{bingxHistory.length}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-400">Рефералы:</span>
-                  <span>{bingxData.newReferrals || 0}</span>
+                  <span>{bingxStats.totalReferrals}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Торговый объем:</span>
-                  <span>${bingxData.tradingVolume || 0}</span>
+                  <span>${bingxStats.totalTradingVolume.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Прибыль с объема:</span>
-                  <span className="text-green-400">${calculateTradingProfit(bingxData.tradingVolume)}</span>
+                  <span className="text-green-400">${bingxStats.totalTradingProfit.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Затраты на рекламу:</span>
-                  <span className="text-red-400">-${bingxData.adCosts || 0}</span>
+                  <span className="text-red-400">-${bingxStats.totalAdCosts.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Прибыль с рекламы:</span>
-                  <span className="text-green-400">+${bingxData.adProfit || 0}</span>
+                  <span className="text-green-400">+${bingxStats.totalAdProfit.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-gray-600 pt-2 mt-2">
+                  <div className="flex justify-between font-semibold">
+                    <span>Чистая прибыль:</span>
+                    <span className="text-green-400">
+                      ${(bingxStats.totalTradingProfit + bingxStats.totalAdProfit - bingxStats.totalAdCosts).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* История записей */}
+            {showBingxHistory && bingxHistory.length > 0 && (
+              <div className="bg-gray-800 rounded-xl p-6">
+                <h4 className="font-semibold mb-4">История записей ({bingxHistory.length})</h4>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {bingxHistory.map((record, index) => (
+                    <div key={index} className="bg-gray-700 rounded-lg p-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-sm text-gray-400">
+                          {new Date(record.createdAt).toLocaleDateString('ru-RU')}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(record.createdAt).toLocaleTimeString('ru-RU', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-400">Рефералы:</span>
+                          <span className="ml-1">{record.newReferrals}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Объем:</span>
+                          <span className="ml-1">${record.tradingVolume.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Прибыль:</span>
+                          <span className="ml-1 text-green-400">${record.tradingProfit.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Реклама:</span>
+                          <span className="ml-1 text-blue-400">${(record.adProfit - record.adCosts).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Заглушка если нет данных */}
+            {bingxHistory.length === 0 && (
+              <div className="bg-gray-800 rounded-xl p-6 text-center">
+                <BarChart3 className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">Нет данных за выбранный период</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Добавьте записи для отображения статистики
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* VIP Tab */}
+        {/* VIP Tab - остается без изменений */}
         {activeTab === 'vip' && (
           <div className="space-y-6">
             {/* Форма добавления ВИП участника */}
@@ -551,7 +684,7 @@ const ManagerDashboard = ({ onLogout }) => {
           </div>
         )}
 
-        {/* Trading Tab */}
+        {/* Trading Tab - остается без изменений */}
         {activeTab === 'trading' && (
           <div className="space-y-6">
             {/* Стартовый депозит */}

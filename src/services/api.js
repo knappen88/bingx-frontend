@@ -39,11 +39,11 @@ export const authAPI = {
   getCurrentUser: () => api.get('/auth/me')
 };
 
-// BingX API
+// BingX API с поддержкой фильтрации
 export const bingxAPI = {
   saveData: (data) => api.post('/bingx/data', data),
-  getData: () => api.get('/bingx/data'),
-  getAllData: () => api.get('/bingx/all-data')
+  getData: (period) => api.get(`/bingx/data${period ? `?period=${period}` : ''}`),
+  getAllData: (period) => api.get(`/bingx/all-data${period ? `?period=${period}` : ''}`)
 };
 
 // VIP API
@@ -66,10 +66,10 @@ export const tradingAPI = {
 
 // Admin API
 export const adminAPI = {
-  // Получить всю статистику
-  getAllStats: async () => {
+  // Получить всю статистику с фильтрацией
+  getAllStats: async (period) => {
     const [bingxData, vipData, tradingData] = await Promise.all([
-      bingxAPI.getAllData(),
+      bingxAPI.getAllData(period),
       vipAPI.getAllMembers(), 
       tradingAPI.getAllData()
     ]);
@@ -82,7 +82,7 @@ export const adminAPI = {
   },
   
   // Получить всех пользователей
-  getAllUsers: () => api.get('/auth/users') // Этот endpoint нужно создать
+  getAllUsers: () => api.get('/auth/users')
 };
 
 export const trafferAPI = {

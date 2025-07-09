@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, PieChart, Users, Target } from 'lucide-react';
+import { BarChart3, PieChart, Users, Target, Filter } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie } from 'recharts';
 import { adminAPI } from '../services/api';
+import TimeFilter from './TimeFilter';
 
 const AdminDashboard = ({ onLogout }) => {
   const [activeSection, setActiveSection] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [data, setData] = useState({
     bingx: [],
     vip: [],
@@ -14,17 +16,17 @@ const AdminDashboard = ({ onLogout }) => {
     users: []
   });
 
-  // Загрузка данных при монтировании компонента
+  // Загрузка данных при монтировании компонента и при изменении периода
   useEffect(() => {
     loadAllData();
-  }, []);
+  }, [selectedPeriod]);
 
   const loadAllData = async () => {
     setLoading(true);
     setError('');
     
     try {
-      const statsData = await adminAPI.getAllStats();
+      const statsData = await adminAPI.getAllStats(selectedPeriod);
       // const usersData = await adminAPI.getAllUsers(); // Раскомментировать когда добавим endpoint
       
       setData({
@@ -145,6 +147,17 @@ const AdminDashboard = ({ onLogout }) => {
     }));
   };
 
+  // Получить название периода
+  const getPeriodName = () => {
+    const periodNames = {
+      'today': 'Сегодня',
+      'yesterday': 'Вчера',
+      'week': 'Последние 7 дней',
+      'month': 'Текущий месяц'
+    };
+    return periodNames[selectedPeriod] || 'Все время';
+  };
+
   const sections = [
     { id: 'overview', name: 'Обзор', icon: BarChart3 },
     { id: 'analytics', name: 'Аналитика', icon: PieChart },
@@ -204,6 +217,19 @@ const AdminDashboard = ({ onLogout }) => {
           </div>
         )}
 
+        {/* Time Filter */}
+        <div className="mb-6 bg-gray-800 rounded-xl p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <Filter className="w-5 h-5 mr-2" />
+            Фильтр по времени
+          </h3>
+          
+          <TimeFilter 
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={setSelectedPeriod}
+          />
+        </div>
+
         {/* Navigation */}
         <div className="flex space-x-1 bg-gray-800 rounded-xl p-1 mb-6">
           {sections.map((section) => {
@@ -228,6 +254,16 @@ const AdminDashboard = ({ onLogout }) => {
         {/* Overview Section */}
         {activeSection === 'overview' && (
           <div className="space-y-6">
+            {/* Выбранный период */}
+            <div className="bg-blue-800 rounded-xl p-4">
+              <div className="text-center">
+                <div className="text-lg font-semibold">Данные за: {getPeriodName()}</div>
+                <div className="text-sm text-blue-200 mt-1">
+                  Записей BingX: {data.bingx.length}
+                </div>
+              </div>
+            </div>
+
             {/* Основные показатели */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-800 rounded-xl p-4">
@@ -260,35 +296,64 @@ const AdminDashboard = ({ onLogout }) => {
             <div className="bg-gray-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <Target className="w-5 h-5 mr-2" />
-                Средние показатели (Авераги)
+                Средние показатели (за период)
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Рефералы в день:</span>
+                  <span className="text-gray-400">Рефералы за запись:</span>
                   <span className="font-semibold">{averages.avgReferralsPerDay}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Торговый объем в день:</span>
+                  <span className="text-gray-400">Торговый объем за запись:</span>
                   <span className="font-semibold">${parseInt(averages.avgTradingVolume).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Доход в день:</span>
+                  <span className="text-gray-400">Доход за запись:</span>
                   <span className="font-semibold text-green-400">${averages.avgDailyRevenue}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Расходы в день:</span>
+                  <span className="text-gray-400">Расходы за запись:</span>
                   <span className="font-semibold text-red-400">${averages.avgDailyCosts}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Чистая прибыль в день:</span>
+                  <span className="text-gray-400">Чистая прибыль за запись:</span>
                   <span className="font-semibold text-green-400">${averages.avgNetProfit}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Детализация по источникам дохода */}
+            <div className="bg-gray-800 rounded-xl p-6">
+              <h3 className="text-lg font-semibold mb-4">Источники дохода за период</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">BingX торговля:</span>
+                  <span className="font-semibold text-green-400">${totals.totalTradingProfit.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Реклама (чистый доход):</span>
+                  <span className="font-semibold text-blue-400">${(totals.totalAdProfit - totals.totalAdCosts).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">VIP группы:</span>
+                  <span className="font-semibold text-purple-400">${totals.totalVipRevenue.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Личная торговля:</span>
+                  <span className="font-semibold text-orange-400">${totals.totalPersonalTrading.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-gray-600 pt-3 mt-3">
+                  <div className="flex justify-between font-semibold">
+                    <span>Итого:</span>
+                    <span className="text-green-400">${totals.totalRevenue.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Реальные данные */}
             <div className="bg-gray-800 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-4">Сводка данных</h3>
+              <h3 className="text-lg font-semibold mb-4">Сводка данных за период</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-400">BingX записей:</span>
@@ -314,13 +379,23 @@ const AdminDashboard = ({ onLogout }) => {
         {/* Analytics Section */}
         {activeSection === 'analytics' && (
           <div className="space-y-6">
+            {/* Информация о периоде */}
+            <div className="bg-blue-800 rounded-xl p-4">
+              <div className="text-center">
+                <div className="text-lg font-semibold">Аналитика за: {getPeriodName()}</div>
+                <div className="text-sm text-blue-200 mt-1">
+                  На основе {data.bingx.length} записей BingX
+                </div>
+              </div>
+            </div>
+
             {/* Линейный график доходов */}
             <div className="bg-gray-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold mb-4">Динамика доходов за период</h3>
               {data.bingx.length > 0 ? (
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data.bingx.slice(-7)}>
+                    <LineChart data={data.bingx.slice(-10)}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                       <XAxis 
                         dataKey="createdAt" 
@@ -358,7 +433,7 @@ const AdminDashboard = ({ onLogout }) => {
                   <div className="text-center">
                     <BarChart3 className="w-12 h-12 text-gray-500 mx-auto mb-2" />
                     <p className="text-gray-400">Нет данных для графика</p>
-                    <p className="text-sm text-gray-500">Добавьте данные через Manager панель</p>
+                    <p className="text-sm text-gray-500">Попробуйте изменить период или добавить данные</p>
                   </div>
                 </div>
               )}
@@ -366,7 +441,7 @@ const AdminDashboard = ({ onLogout }) => {
 
             {/* Круговая диаграмма доходов */}
             <div className="bg-gray-800 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-4">Структура доходов</h3>
+              <h3 className="text-lg font-semibold mb-4">Структура доходов за период</h3>
               {totals.totalRevenue > 0 ? (
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
@@ -393,6 +468,7 @@ const AdminDashboard = ({ onLogout }) => {
                   <div className="text-center">
                     <PieChart className="w-12 h-12 text-gray-500 mx-auto mb-2" />
                     <p className="text-gray-400">Нет данных для диаграммы</p>
+                    <p className="text-sm text-gray-500">Попробуйте изменить период</p>
                   </div>
                 </div>
               )}
@@ -413,7 +489,7 @@ const AdminDashboard = ({ onLogout }) => {
 
             {/* Детальная статистика */}
             <div className="bg-gray-800 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-4">Детальная статистика</h3>
+              <h3 className="text-lg font-semibold mb-4">Детальная статистика за период</h3>
               <div className="space-y-4">
                 <div className="bg-gray-700 rounded-lg p-4">
                   <h4 className="font-medium mb-2">BingX Торговля</h4>
@@ -425,6 +501,10 @@ const AdminDashboard = ({ onLogout }) => {
                     <div className="flex justify-between">
                       <span className="text-gray-400">Прибыль с объема:</span>
                       <span className="text-green-400">${totals.totalTradingProfit.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Средний объем за запись:</span>
+                      <span>${data.bingx.length > 0 ? (totals.totalTradingVolume / data.bingx.length).toLocaleString() : 0}</span>
                     </div>
                   </div>
                 </div>
@@ -474,8 +554,18 @@ const AdminDashboard = ({ onLogout }) => {
         {/* Users Section */}
         {activeSection === 'users' && (
           <div className="space-y-6">
+            {/* Информация о периоде */}
+            <div className="bg-blue-800 rounded-xl p-4">
+              <div className="text-center">
+                <div className="text-lg font-semibold">Пользователи за: {getPeriodName()}</div>
+                <div className="text-sm text-blue-200 mt-1">
+                  Активность менеджеров в выбранном периоде
+                </div>
+              </div>
+            </div>
+
             <div className="bg-gray-800 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-4">Активность пользователей</h3>
+              <h3 className="text-lg font-semibold mb-4">Активность пользователей за период</h3>
               <div className="space-y-4">
                 {userStats.length > 0 ? userStats.map((user, index) => (
                   <div key={index} className="bg-gray-700 rounded-lg p-4">
@@ -487,11 +577,11 @@ const AdminDashboard = ({ onLogout }) => {
                     </div>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Общий доход:</span>
+                        <span className="text-gray-400">Общий доход за период:</span>
                         <span className="text-green-400">${user.totalRevenue.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-400">BingX:</span>
+                        <span className="text-gray-400">BingX доход:</span>
                         <span>${user.bingxProfit.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
@@ -503,7 +593,7 @@ const AdminDashboard = ({ onLogout }) => {
                         <span>{user.vipCount}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Рефералы:</span>
+                        <span className="text-gray-400">Рефералы за период:</span>
                         <span>{user.referrals}</span>
                       </div>
                     </div>
@@ -511,8 +601,8 @@ const AdminDashboard = ({ onLogout }) => {
                 )) : (
                   <div className="text-center text-gray-400 py-8">
                     <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Пока нет данных пользователей</p>
-                    <p className="text-sm mt-1">Данные появятся после активности менеджеров</p>
+                    <p>Нет данных пользователей за выбранный период</p>
+                    <p className="text-sm mt-1">Попробуйте изменить период или добавить активность</p>
                   </div>
                 )}
               </div>
